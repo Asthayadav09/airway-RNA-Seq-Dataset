@@ -1,4 +1,4 @@
-# 📊 RNA-Seq Differential Gene Expression Analysis using DESeq2 and the Airway Dataset
+# 📊 RNA-Seq DGE Analysis on Human Airway Smooth Muscle Cells using DESeq2
 
 ## 🧬 Introduction
 
