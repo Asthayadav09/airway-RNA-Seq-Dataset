@@ -1,0 +1,45 @@
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install(c(
+  "airway",     # the dataset
+  "DESeq2",     # differential expression
+  "apeglm",     # shrinkage
+  "pheatmap",   # heatmaps
+  "tidyverse",  # data manipulation / ggplot2
+  "tximport"    # handy if you later quantify with Salmon/Kallisto
+))
+library(airway)
+data(airway)                     # SummarizedExperiment
+se <- airway
+se$cell <- factor(se$cell)       # immortalized cell line IDs
+se$dex  <- relevel(se$dex, "untrt")  # treatment factor (control = reference)
+keep <- rowSums(assay(se) >= 10) >= 3  # ≥10 counts in at least 3 samples
+se   <- se[keep, ]
+library(DESeq2)
+
+dds <- DESeqDataSet(se, design = ~ cell + dex)  # adjust for cell line
+dds <- DESeq(dds)                               # core pipeline
+res <- results(dds, contrast = c("dex", "trt", "untrt"))
+resLFC <- lfcShrink(dds, coef = "dex_trt_vs_untrt", type = "apeglm")
+summary(res)
+# PCA on variance‑stabilized counts
+vsd <- vst(dds)
+plotPCA(vsd, intgroup = "dex")
+# MA plot (shrunk)
+plotMA(resLFC, ylim = c(-6, 6))
+install.packages("pheatmap")  # install once
+library(pheatmap)             # load every session
+# Heatmap of top 30 DE genes
+top30 <- head(order(res$padj), 30)
+mat   <- assay(vsd)[top30, ]
+pheatmap(mat, annotation_col = as.data.frame(colData(dds)[, c("cell", "dex")]))
+BiocManager::install("AnnotationDbi")
+BiocManager::install("org.Hs.eg.db")
+
+library(AnnotationDbi); library(org.Hs.eg.db)
+res$symbol <- mapIds(org.Hs.eg.db,
+                     keys = rownames(res), column = "SYMBOL",
+                     keytype = "ENSEMBL", multiVals = "first")
+write.csv(as.data.frame(resLFC), file = "airway_DESeq2_results.csv")
+getwd()
